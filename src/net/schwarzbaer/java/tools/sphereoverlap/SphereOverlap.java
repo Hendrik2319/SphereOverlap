@@ -6,6 +6,7 @@ import java.util.Vector;
 
 import net.schwarzbaer.geometry.spacial.ConstPoint3d;
 import net.schwarzbaer.geometry.spacial.PointSphere;
+import net.schwarzbaer.vrml.IndexedFaceSet;
 import net.schwarzbaer.vrml.IndexedLineSet;
 import net.schwarzbaer.vrml.VrmlTools;
 
@@ -37,11 +38,11 @@ public class SphereOverlap {
 				new Sphere( -12446.87, -11794.27, -107519.69 )
 		};
 		
-		sphere = new Sphere(new ConstPoint3d(0, 0, 0));
+		sphere = new Sphere(new ConstPoint3d(RADIUS*1.6, 0, 0));
 	}
 
 	private void initialize() {
-		writeToVRML(new File("sphere.wrl"), sphere);
+		writeToVRML2(new File("sphere.wrl"), sphere);
 		
 		for (int i=0; i<spheres.length; i++) {
 			Sphere sp = spheres[i];
@@ -60,9 +61,10 @@ public class SphereOverlap {
 				
 			}
 		}
-		writeToVRML(new File("spheres.wrl"), spheres);
+		writeToVRML2(new File("spheres.wrl"), spheres);
 	}
 	
+	@SuppressWarnings("unused")
 	private static void writeToVRML(File file, Sphere[] spheres) {
 		VrmlTools.writeVRML(file, out->{
 			
@@ -75,7 +77,37 @@ public class SphereOverlap {
 			
 		});
 	}
+	
+	private static void writeToVRML2(File file, Sphere[] spheres) {
+		VrmlTools.writeVRML(file, out->{
+			
+			IndexedFaceSet faceSet = new IndexedFaceSet("%1.1f", false, false);
+			for (Sphere sphere : spheres)
+				for(SpherePoint p : sphere.points)
+					if (p!=null)
+						faceSet.addPointFace(p, p.normal, RADIUS/100);
+			faceSet.writeToVRML(out, false, Color.ORANGE, Color.WHITE, null);
+			
+		});
+	}
+	
+	private static void writeToVRML2(File file, Sphere sphere) {
+		VrmlTools.writeVRML(file, out->{
+			
+			//VrmlTools.writeDirectionalLight(out, 1,1,1, Color.WHITE);
+			//out.println();
+			//VrmlTools.writeBox(out, "%1.1f", RADIUS, RADIUS, RADIUS, Color.ORANGE, Color.WHITE, null);
+			//out.println();
+			
+			IndexedFaceSet faceSet = new IndexedFaceSet("%1.1f", false, false);
+			for(SpherePoint p : sphere.points)
+				if (p!=null)
+					faceSet.addPointFace(p, p.normal, RADIUS/100);
+			faceSet.writeToVRML(out, false, Color.ORANGE, Color.WHITE, null);
+		});
+	}
 
+	@SuppressWarnings("unused")
 	private static void writeToVRML(File file, Sphere sphere) {
 		VrmlTools.writeVRML(file, out->{
 			
@@ -92,7 +124,6 @@ public class SphereOverlap {
 
 	private static class SpherePoint extends ConstPoint3d {
 
-		@SuppressWarnings("unused")
 		private final ConstPoint3d normal;
 
 		public SpherePoint(ConstPoint3d center, double x, double y, double z) {
@@ -107,7 +138,10 @@ public class SphereOverlap {
 			this(new ConstPoint3d(x,y,z));
 		}
 		public Sphere(ConstPoint3d center) {
-			super(center, RADIUS, 4000, SpherePoint::new);
+			this(center, RADIUS, 4000);
+		}
+		public Sphere(ConstPoint3d center, double radius, int nPoints) {
+			super(center, radius, nPoints, SpherePoint::new);
 		}
 		
 	}
