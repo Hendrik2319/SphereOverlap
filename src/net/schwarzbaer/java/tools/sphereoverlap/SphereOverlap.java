@@ -7,6 +7,7 @@ import java.util.Vector;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
+import net.schwarzbaer.geometry.spacial.AxesCross;
 import net.schwarzbaer.geometry.spacial.ConstPoint3d;
 import net.schwarzbaer.geometry.spacial.PointSphere;
 import net.schwarzbaer.vrml.IndexedFaceSet;
@@ -74,7 +75,7 @@ public class SphereOverlap {
 				removeOverlap(tc.spheres);
 				IndexedLineSet lineSet = OverlapEdgeCircle.compute(tc.spheres, tc.pointCoordFormat);
 				if (lineSet!=null)
-					extra = out->lineSet.writeToVRML(out, Color.BLACK);
+					extra = out->lineSet.writeToVRML(out, tc.diffuseColor);
 			}
 			writeToVRMLasPointFaces(new File(tc.label+".wrl"), tc.spheres, tc.pointSize, tc.pointCoordFormat, tc.diffuseColor, extra);
 		}
@@ -82,6 +83,16 @@ public class SphereOverlap {
 	
 	private static class OverlapEdgeCircle {
 		
+		final ConstPoint3d pos;
+		final AxesCross axesCross;
+		final double radius;
+
+		private OverlapEdgeCircle(ConstPoint3d pos, ConstPoint3d normal, double radius) {
+			this.pos = pos;
+			this.radius = radius;
+			axesCross = AxesCross.compute(normal);
+		}
+
 		static IndexedLineSet compute(Sphere[] spheres, String pointCoordFormat) {
 			IndexedLineSet lineSet = new IndexedLineSet(pointCoordFormat, true);
 			forEachSpherePair(spheres, true, (sp1,sp2)->{
@@ -98,11 +109,31 @@ public class SphereOverlap {
 		static OverlapEdgeCircle compute(Sphere sp1, Sphere sp2) {
 			double distance = sp1.center.getDistance(sp2.center);
 			if (distance >= sp1.radius+sp2.radius) return null;
+			if (distance <= Math.abs( sp1.radius-sp2.radius )) return null;
+			// d = (a)d1+d2 || (b)d1-d2 || (c)d2-d1 
 			// d = sqrt( r1^2 - x^2 ) + sqrt( r1^2 - x^2 )
 			// x -> radius of circle
+			// x = (a|b|c) r2² - (d²+r2²-r1²)² / 4d²
+			double r1 = sp1.radius;
+			double r2 = sp2.radius;
+			double x = Math.sqrt( r2*r2 - (distance*distance + r2*r2 - r1*r1) * (distance*distance + r2*r2 - r1*r1) / 4 / distance / distance );
+			double d1 = Math.sqrt( r1*r1 - x*x );
+			double d2 = Math.sqrt( r2*r2 - x*x );
+			ConstPoint3d n = sp2.center.sub(sp1.center).normalize();
 			
-			// TODO Auto-generated method stub
-			return null;
+			ConstPoint3d pos;
+			if (d2>distance) {
+				// (c) circle is before center1 (view center1 -> center2)
+				pos = sp1.center.add(n.mul(distance-d2));
+				
+			} else {
+				// (b) circle is behind center2 (view center1 -> center2)
+				// (a) circle is between center1 and center2
+				//     --> behind center1
+				pos = sp1.center.add(n.mul(d1));
+			}
+			
+			return new OverlapEdgeCircle(pos,n,x);
 		}
 
 		private void cutOut(Sphere sp) {
@@ -110,7 +141,19 @@ public class SphereOverlap {
 		}
 
 		private void addTo(IndexedLineSet lineSet) {
-			// TODO Auto-generated method stub
+			int first = -1;
+			int N = 32;
+			for (int i=0; i<N; i++) {
+				double angle = i*2*Math.PI/N;
+				
+				ConstPoint3d p = pos
+						.add(axesCross.yAxis.mul(radius*Math.cos(angle)))
+						.add(axesCross.zAxis.mul(radius*Math.sin(angle)));
+					
+				int index = lineSet.addLinePoint(p);
+				if (i==0) first = index;
+			}
+			lineSet.closeLine(first);
 		}
 	}
 
