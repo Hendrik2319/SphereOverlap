@@ -75,10 +75,17 @@ public class SphereOverlap {
 				removeOverlap(tc.spheres);
 				IndexedLineSet lineSet = OverlapEdgeCircle.compute(tc.spheres, tc.pointCoordFormat);
 				if (lineSet!=null)
-					extra = out->lineSet.writeToVRML(out, tc.diffuseColor);
+					extra = out->lineSet.writeToVRML(out, darker(tc.diffuseColor, 0.5f));
 			}
 			writeToVRMLasPointFaces(new File(tc.label+".wrl"), tc.spheres, tc.pointSize, tc.pointCoordFormat, tc.diffuseColor, extra);
 		}
+	}
+	
+	private static Color darker(Color c, float ratio) {
+		float r = c.getRed  ()/255f * ratio;
+		float g = c.getGreen()/255f * ratio;
+		float b = c.getBlue ()/255f * ratio;
+		return new Color(r,g,b);
 	}
 	
 	private static class OverlapEdgeCircle {
@@ -86,11 +93,15 @@ public class SphereOverlap {
 		final ConstPoint3d pos;
 		final AxesCross axesCross;
 		final double radius;
+		private boolean isFullCircle;
+		final Vector<Arc> parts;
 
 		private OverlapEdgeCircle(ConstPoint3d pos, ConstPoint3d normal, double radius) {
 			this.pos = pos;
 			this.radius = radius;
 			axesCross = AxesCross.compute(normal);
+			parts = new Vector<>();
+			isFullCircle = true;
 		}
 
 		static IndexedLineSet compute(Sphere[] spheres, String pointCoordFormat) {
@@ -108,53 +119,234 @@ public class SphereOverlap {
 
 		static OverlapEdgeCircle compute(Sphere sp1, Sphere sp2) {
 			double distance = sp1.center.getDistance(sp2.center);
-			if (distance >= sp1.radius+sp2.radius) return null;
-			if (distance <= Math.abs( sp1.radius-sp2.radius )) return null;
-			// d = (a)d1+d2 || (b)d1-d2 || (c)d2-d1 
-			// d = sqrt( r1^2 - x^2 ) + sqrt( r1^2 - x^2 )
-			// x -> radius of circle
-			// x = (a|b|c) r2² - (d²+r2²-r1²)² / 4d²
 			double r1 = sp1.radius;
 			double r2 = sp2.radius;
-			double x = Math.sqrt( r2*r2 - (distance*distance + r2*r2 - r1*r1) * (distance*distance + r2*r2 - r1*r1) / 4 / distance / distance );
-			double d1 = Math.sqrt( r1*r1 - x*x );
-			double d2 = Math.sqrt( r2*r2 - x*x );
-			ConstPoint3d n = sp2.center.sub(sp1.center).normalize();
 			
-			ConstPoint3d pos;
-			if (d2>distance) {
-				// (c) circle is before center1 (view center1 -> center2)
-				pos = sp1.center.add(n.mul(distance-d2));
-				
-			} else {
-				// (b) circle is behind center2 (view center1 -> center2)
-				// (a) circle is between center1 and center2
-				//     --> behind center1
-				pos = sp1.center.add(n.mul(d1));
+			CircleOverlap circleOverlap = CircleOverlap.compute(distance, r1, r2);
+			if (circleOverlap.fullCoverage || circleOverlap.noOverlap) return null;
+			
+			ConstPoint3d n = sp2.center.sub(sp1.center).normalize();
+			ConstPoint3d pos = sp1.center.add(n.mul(circleOverlap.pos));
+			
+			return new OverlapEdgeCircle(pos,n,circleOverlap.height);
+		}
+		
+		private void cutOut(Sphere sphere) {
+			if (!isFullCircle && parts.isEmpty())
+				return; // empty circle
+			
+			ConstPoint3d sphereCenter_local = axesCross.toLocal(sphere.center.sub(pos));
+			double distToPlane = Math.abs( sphereCenter_local.x );
+			if (sphere.radius <= distToPlane)
+				return; // sphere doesn't intersect plane 
+			
+			double intersectionCircleRadius = Math.sqrt(sphere.radius*sphere.radius - distToPlane*distToPlane);
+			double distance = Math.sqrt(sphereCenter_local.y*sphereCenter_local.y + sphereCenter_local.z*sphereCenter_local.z);
+			
+			CircleOverlap circleOverlap = CircleOverlap.compute(distance, radius, intersectionCircleRadius);
+			if (circleOverlap.noOverlap) return;
+			if (circleOverlap.fullCoverage) {
+				if (radius <= intersectionCircleRadius) {
+					// intersectionCircle covers this circle -> empty this circle
+					isFullCircle = false;
+					parts.clear();
+				} // else --> this circle covers intersectionCircle --> do nothing
+				return;
 			}
 			
-			return new OverlapEdgeCircle(pos,n,x);
-		}
-
-		private void cutOut(Sphere sp) {
-			// TODO Auto-generated method stub
+			double angleMid = Math.atan2(sphereCenter_local.z, sphereCenter_local.y);
+			double angleAdd = Math.acos(circleOverlap.pos/radius);
+			
+			Arc overlapArc = new Arc(angleMid-angleAdd, angleMid+angleAdd);
+			
+			if (isFullCircle) {
+				isFullCircle = false;
+				parts.clear();
+				parts.add(new Arc(overlapArc.max, overlapArc.min+2*Math.PI));
+				
+			} else
+				for (int i=0; i<parts.size();) {
+					Arc arc = parts.get(i);
+					
+					ArcSubstractionResult result = ArcSubstractionResult.compute(arc, overlapArc);
+					
+					if (result.removeArc)
+						parts.remove(i);
+					
+					else if (result.changeNothing)
+						i++;
+					
+					else {
+						if (result.result1==null) throw new IllegalStateException();
+						
+						if (result.result2==null) {
+							// replace this arc with result1 
+							parts.set(i, result.result1);
+							i++;
+							
+						} else {
+							// replace this arc with result1 and result2
+							parts.set(i, result.result2);
+							parts.insertElementAt(result.result1, i);
+							i+=2;
+						}
+					}
+				}
 		}
 
 		private void addTo(IndexedLineSet lineSet) {
-			int first = -1;
-			int N = 32;
-			for (int i=0; i<N; i++) {
-				double angle = i*2*Math.PI/N;
-				
-				ConstPoint3d p = pos
-						.add(axesCross.yAxis.mul(radius*Math.cos(angle)))
-						.add(axesCross.zAxis.mul(radius*Math.sin(angle)));
-					
-				int index = lineSet.addLinePoint(p);
-				if (i==0) first = index;
-			}
-			lineSet.closeLine(first);
+			if (isFullCircle)
+				lineSet.addFullCircleTo(32, radius, pos, axesCross.yAxis, axesCross.zAxis);
+			else
+				for(Arc arc : parts)
+					lineSet.addArcTo(32, radius, arc.min, arc.max, pos, axesCross.yAxis, axesCross.zAxis);
 		}
+		
+		private static class Arc {
+			
+			final double min,max;
+			
+			Arc(double min, double max) {
+				if (min> max) throw new IllegalArgumentException();
+				if (min==max) throw new IllegalArgumentException();
+				this.min = min;
+				this.max = max;
+			}
+		}
+		
+		private static class CircleOverlap {
+			
+			final boolean fullCoverage;
+			final boolean noOverlap;
+			final double height;
+			final double pos;
+		
+			CircleOverlap(boolean noOverlap, boolean fullCoverage) {
+				this(noOverlap, fullCoverage, Double.NaN, Double.NaN);
+			}
+			CircleOverlap(double height, double pos) {
+				this(false, false, height, pos);
+			}
+		
+			private CircleOverlap(boolean noOverlap, boolean fullCoverage, double height, double pos) {
+				if (noOverlap && fullCoverage) throw new IllegalArgumentException();
+				if (!noOverlap && !fullCoverage && (Double.isNaN(height) || Double.isNaN(pos))) throw new IllegalArgumentException();
+				if ((noOverlap || fullCoverage) && !Double.isNaN(height) && !Double.isNaN(pos)) throw new IllegalArgumentException();
+				this.noOverlap = noOverlap;
+				this.fullCoverage = fullCoverage;
+				this.height = height;
+				this.pos = pos;
+			}
+			
+			static CircleOverlap compute(double distance, double r1, double r2) {
+				if (distance >= r1+r2) return new CircleOverlap(true, false);
+				if (distance <= Math.abs( r1-r2 )) return new CircleOverlap(false, true);
+				// d = (a)d1+d2 || (b)d1-d2 || (c)d2-d1 
+				// d = sqrt( r1^2 - x^2 ) + sqrt( r1^2 - x^2 )
+				// x -> radius of circle
+				// x = (a|b|c) r2² - (d²+r2²-r1²)² / 4d²
+				double x = Math.sqrt( r2*r2 - (distance*distance + r2*r2 - r1*r1) * (distance*distance + r2*r2 - r1*r1) / 4 / distance / distance );
+				double d1 = Math.sqrt( r1*r1 - x*x );
+				double d2 = Math.sqrt( r2*r2 - x*x );
+				
+				double pos_scalar;
+				if (d2>distance) {
+					// (c) circle is before center1 (view center1 -> center2)
+					pos_scalar = distance-d2;
+					
+				} else {
+					// (b) circle is behind center2 (view center1 -> center2)
+					// (a) circle is between center1 and center2
+					//     --> behind center1
+					pos_scalar = d1;
+				}
+				
+				return new CircleOverlap(x,pos_scalar);
+			}
+		}
+
+		private static class ArcSubstractionResult {
+			
+			final boolean removeArc;
+			final boolean changeNothing;
+			final Arc result1;
+			final Arc result2;
+
+			ArcSubstractionResult(boolean removeArc, boolean changeNothing) {
+				this(removeArc, changeNothing, null, null);
+			}
+			ArcSubstractionResult(Arc result1, Arc result2) {
+				this(false, false, result1, result2);
+			}
+			ArcSubstractionResult(boolean removeArc, boolean changeNothing, Arc result1, Arc result2) {
+				if (!removeArc && !changeNothing && result1==null && result2==null) throw new IllegalArgumentException();
+				if ((removeArc || changeNothing) && (result1!=null || result2!=null)) throw new IllegalArgumentException();
+				if (result1==null && result2!=null) throw new IllegalArgumentException();
+				this.removeArc = removeArc;
+				this.changeNothing = changeNothing;
+				this.result1 = result1;
+				this.result2 = result2;
+			}
+			
+			static ArcSubstractionResult compute(Arc base, Arc other) {
+				if (base==null) throw new IllegalArgumentException();
+				if (other==null) throw new IllegalArgumentException();
+				
+				double otherMax = other.max;
+				double otherMin = other.min;
+				
+				if        (otherMax <= base.min) {
+					while (otherMax <= base.min) {
+						otherMin += 2*Math.PI;
+						otherMax += 2*Math.PI;
+					}
+					if (base.max <= otherMin)
+						// |base|
+						//         |other|
+						return new ArcSubstractionResult(false, true);
+					
+				} else if (base.max <= otherMin) {
+					while (base.max <= otherMin) {
+						otherMin -= 2*Math.PI;
+						otherMax -= 2*Math.PI;
+					}
+					if (otherMax <= base.min)
+						//          |base|
+						// |other|
+						return new ArcSubstractionResult(false, true);
+				}
+				// -->  (base.min < otherMax)
+				//   && (otherMin < base.max)
+				
+				if (otherMin <= base.min) {
+					if (base.max <= otherMax) {
+						//    |base|
+						// |   other   |
+						return new ArcSubstractionResult(true, false);
+					} else {
+						// otherMax < base.max
+						//    |  base  |
+						// |  other |
+						return new ArcSubstractionResult(new Arc(otherMax, base.max), null);
+					}
+					
+				} else {
+					// base.min < otherMin
+					if (base.max <= otherMax) {
+						// |  base  |
+						//    |  other |
+						return new ArcSubstractionResult(new Arc(base.min, otherMin), null);
+						
+					} else {
+						// otherMax < base.max
+						// |   base    |
+						//    |other|
+						return new ArcSubstractionResult(new Arc(base.min, otherMin), new Arc(otherMax, base.max));
+					}
+				}
+			}
+		}
+		
 	}
 
 	private static void forEachSpherePair(Sphere[] spheres, boolean onlyUniquePairs, BiConsumer<Sphere,Sphere> action) {
