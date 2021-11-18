@@ -3,8 +3,6 @@ package net.schwarzbaer.java.tools.sphereoverlap;
 import java.awt.Color;
 import java.io.File;
 import java.io.PrintWriter;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Locale;
 import java.util.Vector;
 import java.util.function.BiConsumer;
@@ -106,60 +104,19 @@ public class SphereOverlap {
 
 	private void initialize() {
 		for (TestCase tc : testCases) {
-			boolean debug = tc.label.startsWith("DebugCase");
 			Consumer<PrintWriter> extra = tc::writeConfigToVRML;
 			if (tc.spheres.length > 1) {
-				removeOverlap(tc.spheres,
-						null //debug ? Arrays.asList(tc.spheres[12]/* ,tc.spheres[8],tc.spheres[4] */) : null
-				);
-				if (debug) {
-					IndexedLineSet[] lineSets = OverlapEdgeCircle.compute_debug(tc.spheres, tc.pointCoordFormat);
-					if (lineSets!=null) {
-						Consumer<PrintWriter> oldExtra = extra;
-						extra = out->{
-							if (oldExtra!=null) oldExtra.accept(out);
-							for (int i=0; i<lineSets.length; i++) {
-								Color color = Color.RED;
-								switch (i%4) {
-								case 0 : color = Color.RED  ; break;
-								case 1 : color = Color.GREEN; break;
-								case 2 : color = Color.BLUE ; break;
-								case 3 : color = Color.MAGENTA; break;
-								}
-								
-								//if (i<=32) // is OK
-									color = Color.BLACK;
-								
-								boolean isBuggy = false;  // TODO: buggy lines
-								switch (i) {
-								case  6: isBuggy = true; color = Color.BLUE; break;
-								//case 19: isBuggy = true; color = Color.GREEN; break;
-								case 32: isBuggy = true; color = Color.RED; break;
-								}
-								
-								IndexedLineSet lineSet = lineSets[i];
-								if (!lineSet.isEmpty()) {
-									out.printf("%n# LineSet %d", i);
-									if (isBuggy) out.print(" ######################################################");
-									out.println();
-									lineSet.writeToVRML(out, color);
-								}
-							}
-						};
-					}
-					
-				} else {
-					IndexedLineSet lineSet = OverlapEdgeCircle.compute(tc.spheres, tc.pointCoordFormat);
-					if (lineSet!=null) {
-						Consumer<PrintWriter> oldExtra = extra;
-						extra = out->{
-							if (oldExtra!=null) oldExtra.accept(out);
-							lineSet.writeToVRML(out, darker(tc.diffuseColor, 0.5f));
-						};
-					}
+				removeOverlap(tc.spheres);
+				IndexedLineSet lineSet = OverlapEdgeCircle.compute(tc.spheres, tc.pointCoordFormat);
+				if (lineSet!=null) {
+					Consumer<PrintWriter> oldExtra = extra;
+					extra = out->{
+						if (oldExtra!=null) oldExtra.accept(out);
+						lineSet.writeToVRML(out, darker(tc.diffuseColor, 0.5f));
+					};
 				}
 			}
-			writeToVRMLasPointFaces(new File(tc.label+".wrl"), debug, tc.spheres, tc.pointSize, tc.pointCoordFormat, tc.diffuseColor, extra);
+			writeToVRMLasPointFaces(new File(tc.label+".wrl"), tc.spheres, tc.pointSize, tc.pointCoordFormat, tc.diffuseColor, extra);
 		}
 	}
 	
@@ -177,9 +134,8 @@ public class SphereOverlap {
 					action.accept(spheres[i], spheres[j]);
 	}
 
-	private static void removeOverlap(Sphere[] spheres, List<Sphere> excludeSpheres) {
+	private static void removeOverlap(Sphere[] spheres) {
 		forEachSpherePair(spheres, false, (sp,sp1)->{
-			if (excludeSpheres!=null && excludeSpheres.contains(sp)) return;
 			Vector<SpherePoint> points = sp.points;
 			for (int k=0; k<points.size(); k++) {
 				SpherePoint p = points.get(k);
@@ -211,55 +167,23 @@ public class SphereOverlap {
 		});
 	}
 	
-	private static void writeToVRMLasPointFaces(File file, boolean debug, Sphere[] spheres, double pointSize, String pointCoordFormat, Color diffuseColor, Consumer<PrintWriter> writeExtra) {
+	private static void writeToVRMLasPointFaces(File file, Sphere[] spheres, double pointSize, String pointCoordFormat, Color diffuseColor, Consumer<PrintWriter> writeExtra) {
 		VrmlTools.writeVRML(file, out->{
 			
 			if (writeExtra!=null) writeExtra.accept(out);
 			
-			if (debug) {
-				for (int i=0; i<spheres.length; i++) {
-					Color color = Color.RED;
-					switch (i%4) {
-					case 0 : color = Color.RED  ; break;
-					case 1 : color = Color.GREEN; break;
-					case 2 : color = Color.BLUE ; break;
-					case 3 : color = Color.MAGENTA; break;
-					}
-					
-					//if (i<=19)
-						color = Color.BLACK;
-					
-					boolean isBuggy = false; // TODO: buggy spheres
-					switch (i) {
-					case  5: isBuggy = true; color = Color.RED  ; break;
-					//case  7: isBuggy = true; color = Color.GREEN; break;
-					case 12: isBuggy = true; color = Color.BLUE ; break;
-					}
-					
-					Sphere sphere = spheres[i];
-					IndexedFaceSet faceSet = new IndexedFaceSet(pointCoordFormat, false, false);
-					addToFaceset(faceSet, pointSize, sphere);
-					out.printf("%n# FaceSet %d", i);
-					if (isBuggy) out.print(" ###################################################");
-					out.println();
-					faceSet.writeToVRML(out, false, color, Color.WHITE, null);
-				}
-				
-			} else {
-				IndexedFaceSet faceSet = new IndexedFaceSet(pointCoordFormat, false, false);
-				for (Sphere sphere : spheres)
-					addToFaceset(faceSet, pointSize, sphere);
-				faceSet.writeToVRML(out, false, diffuseColor, Color.WHITE, null);
-			}
+			IndexedFaceSet faceSet = new IndexedFaceSet(pointCoordFormat, false, false);
+			for (Sphere sphere : spheres)
+				addToFaceset(faceSet, pointSize, sphere);
+			faceSet.writeToVRML(out, false, diffuseColor, Color.WHITE, null);
 			
 		});
 	}
 
 	private static void addToFaceset(IndexedFaceSet faceSet, double pointSize, Sphere sphere) {
 		for(SpherePoint p : sphere.points)
-			if (p!=null) {
+			if (p!=null)
 				faceSet.addPointFace(p, p.normal, pointSize);
-			}
 	}
 
 	private static class SpherePoint extends ConstPoint3d {
@@ -271,8 +195,7 @@ public class SphereOverlap {
 			normal = this.sub(center).normalize();
 		}
 
-		@Override
-		public String toString() {
+		@Override public String toString() {
 			return String.format("SpherePoint [x=%s, y=%s, z=%s, normal=%s]", x, y, z, normal);
 		}
 	}
@@ -295,14 +218,14 @@ public class SphereOverlap {
 			this.nPoints = nPoints;
 		}
 		
-		@Override
-		public String toString() {
-			return String.format("Sphere [center=%s, radius=%s, nPoints=%s]", center, radius, nPoints);
+		@Override public String toString() {
+			return String.format("Sphere [center=%s, radius=%s, points=%d->%d]", center, radius, nPoints, points.size());
 		}
 		
 		public String toConstructorString(String coordFormat) {
 			return String.format(Locale.ENGLISH, "new Sphere( "+coordFormat+", "+coordFormat+", "+coordFormat+", "+coordFormat+", %d)", center.x, center.y, center.z, radius, nPoints);
 		}
+		
 		public static Sphere[] createRandomSpheres(int nSpheres, double minRadius, double maxRadius, double xSize, double ySize, double zSize, int nPoints) {
 			Sphere[] spheres = new Sphere[nSpheres];
 			for (int i=0; i<nSpheres; i++) {

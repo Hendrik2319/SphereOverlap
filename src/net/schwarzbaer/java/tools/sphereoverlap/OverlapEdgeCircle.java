@@ -23,45 +23,24 @@ class OverlapEdgeCircle {
 		isFullCircle = true;
 	}
 
-	@Override
-	public String toString() {
-		return String.format("OverlapEdgeCircle [pos=%s, radius=%s, isFullCircle=%s]", pos, radius, isFullCircle);
-	}
-
-	public static IndexedLineSet[] compute_debug(Sphere[] spheres, String pointCoordFormat) {
-		Vector<IndexedLineSet> lineSets = new Vector<>();
-		SphereOverlap.forEachSpherePair(spheres, true, (sp1,sp2)->{
-			IndexedLineSet lineSet = new IndexedLineSet(pointCoordFormat, true);
-			if (lineSets.size()==6) {
-				System.out.println(lineSets.size());
-			}
-			compute(sp1, sp2, spheres, lineSet, lineSets.size()==6);
-			if (!lineSet.isEmpty())
-				lineSets.add(lineSet);
-		});
-		return lineSets.toArray(IndexedLineSet[]::new);
+	@Override public String toString() {
+		return String.format("OverlapEdgeCircle [pos=%s, radius=%s, isFullCircle=%s, %d parts]", pos, radius, isFullCircle, parts.size());
 	}
 
 	static IndexedLineSet compute(Sphere[] spheres, String pointCoordFormat) {
 		IndexedLineSet lineSet = new IndexedLineSet(pointCoordFormat, true);
 		SphereOverlap.forEachSpherePair(spheres, true, (sp1,sp2)->{
-			compute(sp1, sp2, spheres, lineSet, false);
+			compute(sp1, sp2, spheres, lineSet);
 		});
 		return lineSet;
 	}
 
-	private static void compute(Sphere sp1, Sphere sp2, Sphere[] spheres, IndexedLineSet lineSet, boolean debug) {
-		if (debug) {
-			System.out.println("debug");
-		}
+	private static void compute(Sphere sp1, Sphere sp2, Sphere[] spheres, IndexedLineSet lineSet) {
 		OverlapEdgeCircle circle = compute(sp1,sp2);
 		if (circle==null) return;
 		checkCircleOnSpheres(sp1, sp2, circle);
 		
 		for (int i=0; i<spheres.length; i++) {
-			if (debug && i==12) {
-				System.out.println(i);
-			}
 			Sphere sp = spheres[i];
 			if (sp!=sp1 && sp!=sp2)
 				circle.cutOut(sp);
@@ -187,6 +166,10 @@ class OverlapEdgeCircle {
 			this.min = min;
 			this.max = max;
 		}
+
+		@Override public String toString() {
+			return String.format("Arc [min=%s, max=%s]", min, max);
+		}
 	}
 	
 	private static class CircleOverlap {
@@ -202,12 +185,6 @@ class OverlapEdgeCircle {
 		CircleOverlap(double height, double pos) {
 			this(false, false, height, pos);
 		}
-	
-		@Override
-		public String toString() {
-			return String.format("CircleOverlap [fullCoverage=%s, noOverlap=%s, height=%s, pos=%s]", fullCoverage, noOverlap, height, pos);
-		}
-		
 		private CircleOverlap(boolean noOverlap, boolean fullCoverage, double height, double pos) {
 			if (noOverlap && fullCoverage) throw new IllegalArgumentException();
 			if (!noOverlap && !fullCoverage && (Double.isNaN(height) || Double.isNaN(pos))) throw new IllegalArgumentException();
@@ -216,6 +193,10 @@ class OverlapEdgeCircle {
 			this.fullCoverage = fullCoverage;
 			this.height = height;
 			this.pos = pos;
+		}
+		
+		@Override public String toString() {
+			return String.format("CircleOverlap [fullCoverage=%s, noOverlap=%s, height=%s, pos=%s]", fullCoverage, noOverlap, height, pos);
 		}
 		
 		static CircleOverlap compute(double distance, double r1, double r2) {
@@ -266,6 +247,10 @@ class OverlapEdgeCircle {
 			this.changeNothing = changeNothing;
 			this.result1 = result1;
 			this.result2 = result2;
+		}
+		
+		@Override public String toString() {
+			return String.format("ArcSubstractionResult [removeArc=%s, changeNothing=%s, result1=%s, result2=%s]", removeArc, changeNothing, result1, result2);
 		}
 		
 		static ArcSubstractionResult compute(Arc base, Arc other) {
