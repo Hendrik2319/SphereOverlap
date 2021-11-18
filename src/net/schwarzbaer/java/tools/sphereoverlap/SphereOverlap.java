@@ -75,8 +75,30 @@ public class SphereOverlap {
 				new Sphere( -33.38, -64.22, 41.81, 40.49, 2624),
 				new Sphere( -99.80, -38.62, 5.82, 33.38, 1782),
 		}));
-		
-		
+		testCases.add(
+				new TestCase( "DebugCase 2", 1.00, "%1.2f", new Color(0xFFFFC800, true), new Sphere[] {
+						new Sphere( 94.44, 67.82, -20.00, 25.56, 1045), // 815 points
+						new Sphere( 53.56, -64.11, -25.67, 35.44, 2009), // 0 points
+						new Sphere( 18.96, -83.05, 8.17, 45.47, 3309), // 1646 points
+						new Sphere( 61.05, -66.61, -22.94, 47.04, 3541), // 2372 points
+						new Sphere( -69.70, 40.35, -17.39, 47.13, 3553), // 2060 points
+						new Sphere( -53.52, 79.77, 9.10, 37.80, 2286), // 1282 points
+						new Sphere( -78.46, -8.72, 43.68, 24.61, 969), // 472 points
+						new Sphere( -14.91, -13.32, -35.15, 31.40, 1577), // 1081 points
+						new Sphere( 84.02, 15.37, -24.30, 43.49, 3027), // 2019 points
+						new Sphere( -37.27, 72.44, 2.25, 33.65, 1812), // 299 points
+						new Sphere( -17.02, 64.05, -3.37, 27.37, 1198), // 305 points
+						new Sphere( 65.16, 15.84, 20.07, 45.29, 3282), // 2191 points
+						new Sphere( -76.88, -4.29, 21.62, 33.87, 1836), // 934 points
+						new Sphere( -86.77, -28.42, -25.83, 30.15, 1455), // 876 points
+						new Sphere( -85.71, 8.47, -12.54, 39.34, 2476), // 668 points
+						new Sphere( 7.48, 57.92, 18.30, 34.45, 1899), // 883 points
+						new Sphere( 48.39, 26.36, 32.17, 26.98, 1165), // 153 points
+						new Sphere( 12.92, 63.83, 26.48, 31.16, 1553), // 629 points
+						new Sphere( -51.85, -20.83, -31.53, 24.05, 926), // 421 points
+						new Sphere( 13.68, -56.72, -2.21, 49.66, 3947), // 1937 points
+				})
+		);
 	}
 	
 	private static class TestCase {
@@ -97,7 +119,7 @@ public class SphereOverlap {
 		public void writeConfigToVRML(PrintWriter out) {
 			out.printf(Locale.ENGLISH, "#new TestCase( \"%s\", "+pointCoordFormat+", \"%s\", new Color(0x%08X, true), new Sphere[] {%n", label, pointSize, pointCoordFormat, diffuseColor.getRGB());
 			for(Sphere sp : spheres)
-				out.printf(Locale.ENGLISH, "#\t\t%s, # %d points%n", sp.toConstructorString(pointCoordFormat), sp.points.size());
+				out.printf(Locale.ENGLISH, "#\t\t%s, // %d points%n", sp.toConstructorString(pointCoordFormat), sp.points.size());
 			out.println("#})");
 		}
 	}
@@ -183,7 +205,7 @@ public class SphereOverlap {
 	private static void addToFaceset(IndexedFaceSet faceSet, double pointSize, Sphere sphere) {
 		for(SpherePoint p : sphere.points)
 			if (p!=null)
-				faceSet.addPointFace(p, p.normal, pointSize);
+				faceSet.addPointFace(p, p.normal, pointSize, 5);
 	}
 
 	private static class SpherePoint extends ConstPoint3d {
