@@ -44,15 +44,23 @@ public class SphereOverlap {
 				new Sphere( -24134.06, -17430.58,  -69033.38 ),
 				new Sphere( -12446.87, -11794.27, -107519.69 ),
 		}));
+		
+		//double radiusT = 50.1;
+		double radiusT = 57.6;
+		//double radiusT = 57.9;
+		//double radiusT = 61;
+		//double radiusT = 61.2;
 		testCases.add( new TestCase("Tetraeder", 1, "%1.2f", Color.GREEN, new Sphere[] { // 50 / 57.73502692 / 61.2372 
-				new Sphere(  0.0000,  0.0000,  0.0000, 57.9, 4000),
-				new Sphere(100.0000,  0.0000,  0.0000, 57.9, 4000),
-				new Sphere( 50.0000, 86.6025,  0.0000, 57.9, 4000),
-				new Sphere( 50.0000, 28.8675, 81.6497, 57.9, 4000),
+				new Sphere(  0.0000,  0.0000,  0.0000, radiusT, 4000),
+				new Sphere(100.0000,  0.0000,  0.0000, radiusT, 4000),
+				new Sphere( 50.0000, 86.6025,  0.0000, radiusT, 4000),
+				new Sphere( 50.0000, 28.8675, 81.6497, radiusT, 4000),
 		}));
+		
 		testCases.add( new TestCase( "Random", 1.00, "%1.2f", Color.ORANGE,
 				Sphere.createRandomSpheres(20, 20,50, 200,200,100, 4000)
 		));
+		
 		testCases.add(new TestCase( "DebugCase 1", 1.00, "%1.2f", new Color(0xFFFFC800, true), new Sphere[] {
 				new Sphere( 40.85, -97.31, 32.23, 31.48, 1586),
 				new Sphere( -51.46, 93.45, -26.41, 26.34, 1110),
