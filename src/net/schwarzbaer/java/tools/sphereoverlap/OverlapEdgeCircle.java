@@ -2,10 +2,10 @@ package net.schwarzbaer.java.tools.sphereoverlap;
 
 import java.util.Vector;
 
-import net.schwarzbaer.geometry.spacial.AxesCross;
-import net.schwarzbaer.geometry.spacial.ConstPoint3d;
+import net.schwarzbaer.java.lib.geometry.spacial.AxesCross;
+import net.schwarzbaer.java.lib.geometry.spacial.ConstPoint3d;
+import net.schwarzbaer.java.lib.vrml.IndexedLineSet;
 import net.schwarzbaer.java.tools.sphereoverlap.SphereOverlap.Sphere;
-import net.schwarzbaer.vrml.IndexedLineSet;
 
 class OverlapEdgeCircle {
 	

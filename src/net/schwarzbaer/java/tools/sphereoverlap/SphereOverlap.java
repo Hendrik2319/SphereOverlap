@@ -8,11 +8,11 @@ import java.util.Vector;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-import net.schwarzbaer.geometry.spacial.ConstPoint3d;
-import net.schwarzbaer.geometry.spacial.PointSphere;
-import net.schwarzbaer.vrml.IndexedFaceSet;
-import net.schwarzbaer.vrml.IndexedLineSet;
-import net.schwarzbaer.vrml.VrmlTools;
+import net.schwarzbaer.java.lib.geometry.spacial.ConstPoint3d;
+import net.schwarzbaer.java.lib.geometry.spacial.PointSphere;
+import net.schwarzbaer.java.lib.vrml.IndexedFaceSet;
+import net.schwarzbaer.java.lib.vrml.IndexedLineSet;
+import net.schwarzbaer.java.lib.vrml.VrmlTools;
 
 public class SphereOverlap {
 	
